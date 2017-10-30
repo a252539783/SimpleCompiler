@@ -67,9 +67,9 @@ public class DictGraph
 		{
 			try {
 				/**
-				 * 一旦在扫描过程中遇到终结符号，由于该终结符号可能属于另一个状态的非终结符
-				 * 号，所以应该在读取到终结符号时保存下，以供下次扫描继续使用；
-				 * 而当扫描时遇到的第一个符号就是终结符号时则不存在这种情况
+				 * meeting terminal and having scanned 2 or more characters,for the last character
+				 * we scan may not be contained by the result we will get,so save it here and use it
+				 * in next loop.Otherwise not.
 				 */
 				if (last!=-1)
 				{
@@ -102,26 +102,26 @@ public class DictGraph
 			if (node.termi)
 			{
 				if (i!=0)
-					last=c;
+					last=c;			//save it
 				else {
 					last = -1;
 
 					/**
-					 * 仅在遇到的终结符号不是第一个字符时保存下这个符号
+					 * meets a terminal status when scanning first char,write it
 					 */
 					builder.append((char)c);
 				}
 				break;
 			}
 
-			builder.append((char)c);				//存入所有非终结符号
+			builder.append((char)c);				//write all
 		}
 
 		return new DictItem(mType.get(node.index),node.index,builder.toString());
 	}
 
 	/**
-	 * 加载要识别的源文件
+	 * load the source
 	 *
 	 * @return true when succeed or false if the source file not found
 	 */
@@ -137,7 +137,7 @@ public class DictGraph
 	}
 
 	/**
-	 * 加载词法文件
+	 * load dict file
 	 *
 	 * @param path path
 	 * @return load successfully
@@ -183,21 +183,27 @@ public class DictGraph
 						String []c=s.split(",");
 						int num1=Integer.parseInt(c[0].trim());
 						int relation=0;
-						if (c[1].contains("'"))
-							relation=c[1].charAt(1);
-						else
-							relation=Integer.parseInt(c[1].trim());
+						if (c.length!=3)
+						{
+							relation=',';
+						}else
+						{
+							if (c[1].contains("'"))
+								relation=c[1].charAt(1);
+							else
+								relation=Integer.parseInt(c[1].trim());
+						}
 
-						c[2]=c[2].trim();
-						int len=c[2].indexOf(';');
+						c[c.length-1]=c[c.length-1].trim();
+						int len=c[c.length-1].indexOf(';');
 						int num2;
 					/**
-                     * 分号表示终态
+                     * ';' means terminal.
 					 */
 						if (len!=-1)
-							num2=Integer.parseInt(c[2].substring(0, len));
+							num2=Integer.parseInt(c[c.length-1].substring(0, len));
 						else
-							num2=Integer.parseInt(c[2]);
+							num2=Integer.parseInt(c[c.length-1]);
 
 						Node n1=mAll.get(num1);
 						Node n2=mAll.get(num2);
@@ -222,20 +228,20 @@ public class DictGraph
 						
 						n1.add(relation, n2);
 					break;
-				case 1:			//key 此处将所有关键字直接加入状态图以避免二次比较
+				case 1:			//key  add all keys to Graph for avoid reading twice
 					Node n=mLoaded;
 					Node iden=mLoaded.nexts.get(Characters.CHAR);
 					s=s.trim();
 					for (int i=0;i<s.length();i++)
 					{
 						char m=s.charAt(i);
-						Node cn=n.nexts.get(m);
+						Node cn=n.nexts.get((int)m);
 						Set<Map.Entry<Integer,Node>> set= iden.nexts.entrySet();
 						if (cn==null)
 						{
 							Iterator<Map.Entry<Integer,Node>> it=set.iterator();
-							cn=new Node(false,Integer.MIN_VALUE);		//创建关键字节点   此处标号无意义直接不填
-							while (it.hasNext())		//将该节点指向标识符节点
+							cn=new Node(false,Integer.MIN_VALUE);		//here the index for non-terminal has no sense
+							while (it.hasNext())		//make the node point at the identifier node
 							{
 								Map.Entry<Integer,Node> e=it.next();
 								cn.add(e.getKey(),e.getValue());
@@ -246,13 +252,18 @@ public class DictGraph
 						n=cn;
 					}
 					Node cn=new Node(true,mKeyIndex++);
-					mType.put(mKeyIndex-1,"KEY");		//关键字自成类型
+					mType.put(mKeyIndex-1,"KEY");		//make every key be a type individually.
 					n.add(Characters.NO_NUMCHAR,cn);
 					break;
 				case 2:			//type
 					String[] cc=s.split(":");
 					int index=Integer.parseInt(cc[0]);
-					mType.put(index, cc[1].trim());
+					if (cc.length==2)
+						mType.put(index, cc[1].trim());
+					else		//meets ':'
+					{
+						mType.put(index, ":");
+					}
 					break;
 				}
 			}
@@ -305,11 +316,11 @@ public class DictGraph
 		 */
 		Node get(int c)
 		{
-			Node x=nexts.get(c);		//关键字优先
+			Node x=nexts.get(c);		//key first
 			if (x!=null)
 				return x;
 
-			if (Character.isSpaceChar(c))
+			if (Characters.isSpaceChar(c))
 			{
 				x=nexts.get(Characters.SPACE);
 
@@ -429,7 +440,7 @@ public class DictGraph
 
 		@Override
 		public String toString() {
-			return classDesc+"("+classId+")"+":"+originValue;
+			return String.format("%-15s(%-15d):%-15s",classDesc,classId,originValue);
 		}
 	}
 }

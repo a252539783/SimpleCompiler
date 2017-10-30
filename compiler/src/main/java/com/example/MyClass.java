@@ -5,6 +5,7 @@ import java.io.IOException;
 public class MyClass {
 
     public static void main(String []s) throws IOException, InterruptedException {
+       // p(""+(int)'\t'+"AA");
 
         DictGraph d= DictGraph.get();
         d.loadDict("xxx.txt");
